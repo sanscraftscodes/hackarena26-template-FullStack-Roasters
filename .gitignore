@@ -11,12 +11,20 @@ backend/.env
 # Environment Files
 # -------------------------
 .env
+.env.local
+.env.*.local
 *.env
 
 # -------------------------
-# Firebase Credentials
+# Firebase Credentials & Sensitive Files
 # -------------------------
 *.json
+SmartBudgetOCR/google-services.json
+SmartBudgetOCR/android/app/src/google-services.json
+SmartBudgetOCR/ios/GoogleService-Info.plist
+SmartBudgetOCR/android/local.properties
+SmartBudgetOCR/.env
+SmartBudgetOCR/.env.local
 
 # -------------------------
 # Flutter
