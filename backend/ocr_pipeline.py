@@ -2,12 +2,25 @@
 
 import cv2
 import numpy as np
-from paddleocr import PaddleOCR
 from PIL import Image
 import io
 
-# Initialize OCR once
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
+# OCR engine will be imported and initialized lazily.  The server
+# can start even if paddleocr/paddlepaddle aren't installed; an
+# attempt to use OCR will raise an informative error.
+ocr = None
+
+def _init_ocr():
+    global ocr
+    if ocr is None:
+        try:
+            from paddleocr import PaddleOCR
+        except ImportError as exc:
+            raise RuntimeError(
+                "PaddleOCR is not available in this environment. "
+                "Install paddleocr (and paddlepaddle) or run in a separate venv."
+            ) from exc
+        ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
 
 def preprocess_image(image_bytes):
@@ -49,6 +62,9 @@ def preprocess_image(image_bytes):
 
 
 def extract_text(image_bytes):
+    # ensure the OCR engine is initialized; this may raise if paddleocr isn’t
+    # installed in the active environment
+    _init_ocr()
 
     processed = preprocess_image(image_bytes)
 

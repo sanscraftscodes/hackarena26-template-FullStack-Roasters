@@ -21,7 +21,8 @@ class AppColors {
   static const Color surface = Colors.white;
   static const Color card = Colors.white;
   static const Color divider = Color(0xFFE2E8F0);
-  static const Color textMuted = Color(0xFF64748B);
+  static const Color textPrimary = Color(0xFF1E293B); // Dark slate
+  static const Color textMuted = Color(0xFF475569); // Darker muted shade
 
   static const Color error = Color(0xFFB00020);
 

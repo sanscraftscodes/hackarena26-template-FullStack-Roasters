@@ -110,7 +110,7 @@ class _SignupPageState extends State<SignupPage> {
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFFEFF6FF), AppColors.background],
+                  colors: [Color(0xFF673AB7), Color(0xFF3F51B5)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -124,7 +124,7 @@ class _SignupPageState extends State<SignupPage> {
                   child: Container(
                     padding: const EdgeInsets.all(AppTokens.s24),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.black,
                       borderRadius: AppTokens.cardRadius,
                       boxShadow: AppTokens.softShadow,
                     ),

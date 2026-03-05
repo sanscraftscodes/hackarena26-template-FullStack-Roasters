@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/widgets/budget_alert_card.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/expense_card.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/summary_card.dart';
+import '../../../features/profile/data/profile_providers.dart';
 import '../../../services/database_service.dart';
 import '../widgets/category_chart.dart';
 
@@ -21,8 +23,19 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsAsync = ref.watch(analyticsProvider);
     final expensesAsync = ref.watch(recentExpensesProvider);
+    final profileAsync = ref.watch(userProfileProvider);
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+            );
+          }
+        ),
         title: const Text('Dashboard'),
         actions: [
           IconButton(
@@ -53,26 +66,45 @@ class DashboardPage extends ConsumerWidget {
               ),
               data: (analytics) {
                 final total =
-                    (analytics?['grand_total'] as num?)?.toDouble() ?? 0;
-                return SummaryCard(
-                  title: 'Total spent this month',
-                  value: _formatMoney(total),
-                  subtitle: 'Synced across offline + online expenses',
-                  trailing: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
+                    (analytics?['total_spent'] as num?)?.toDouble() ?? 0;
+                final count = (analytics?['receipt_count'] as int?) ?? 0;
+
+                final monthlyBudget = profileAsync.maybeWhen(
+                  data: (profile) => profile?.monthlyBudget,
+                  orElse: () => null,
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SummaryCard(
+                      title: 'Total spent this month',
+                      value: _formatMoney(total),
+                      subtitle: '$count receipts this month',
+                      trailing: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.trending_up,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.trending_up,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
+                    if (monthlyBudget != null) ...[
+                      const SizedBox(height: AppTokens.s12),
+                      BudgetAlertCard(
+                        totalSpent: total,
+                        monthlyBudget: monthlyBudget,
+                      ),
+                    ],
+                  ],
                 );
               },
             ),
@@ -82,7 +114,7 @@ class DashboardPage extends ConsumerWidget {
               error: (_, __) => const SizedBox.shrink(),
               data: (analytics) {
                 final byCategory = Map<String, double>.from(
-                  (analytics?['by_category'] as Map?)?.map(
+                  (analytics?['category_spending'] as Map?)?.map(
                         (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
                       ) ??
                       {},
@@ -110,6 +142,66 @@ class DashboardPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: AppTokens.s12),
                       SizedBox(height: 210, child: CategoryChart(data: byCategory)),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: AppTokens.s16),
+            analyticsAsync.when(
+              loading: () => const SkeletonBox(height: 150),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (analytics) {
+                final byVendor = Map<String, double>.from(
+                  (analytics?['vendor_spending'] as Map?)?.map(
+                        (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+                      ) ?? {},
+                );
+                if (byVendor.isEmpty) return const SizedBox.shrink();
+                
+                final entries = byVendor.entries.toList()
+                  ..sort((a, b) => b.value.compareTo(a.value));
+                final topVendors = entries.take(5).toList();
+                
+                return Container(
+                  padding: const EdgeInsets.all(AppTokens.s16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: AppTokens.cardRadius,
+                    boxShadow: AppTokens.softShadow,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Top vendors',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppTokens.s16),
+                      ...topVendors.map((e) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(e.key, style: const TextStyle(fontWeight: FontWeight.w500)),
+                                  Text(_formatMoney(e.value)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              LinearProgressIndicator(
+                                value: e.value / (entries.first.value),
+                                backgroundColor: Colors.grey.shade200,
+                                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 );

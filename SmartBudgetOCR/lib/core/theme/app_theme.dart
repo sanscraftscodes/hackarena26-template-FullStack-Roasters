@@ -22,7 +22,10 @@ class AppTheme {
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
     return base.copyWith(
       scaffoldBackgroundColor: AppColors.background,
-      textTheme: GoogleFonts.interTextTheme(base.textTheme),
+      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
+        bodyColor: AppColors.textPrimary,
+        displayColor: AppColors.textPrimary,
+      ),
       appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
       dividerColor: AppColors.divider,
       cardTheme: CardThemeData(
@@ -109,7 +112,10 @@ class AppTheme {
     );
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
     return base.copyWith(
-      textTheme: GoogleFonts.interTextTheme(base.textTheme),
+      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
+        bodyColor: Colors.white,
+        displayColor: Colors.white,
+      ),
       appBarTheme: const AppBarTheme(centerTitle: false, elevation: 0),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {

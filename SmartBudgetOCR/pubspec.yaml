@@ -32,6 +32,9 @@ dependencies:
   # Image capture
   image_picker: ^1.1.2
 
+  # Speech recognition
+  speech_to_text: ^6.3.0
+
   # Navigation
   go_router: ^14.6.2
 

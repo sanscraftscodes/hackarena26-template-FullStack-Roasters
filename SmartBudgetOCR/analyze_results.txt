@@ -1,0 +1,7 @@
+Analyzing SmartBudgetOCR...                                     
+
+warning - The value of 'refresh' should be used - lib\features\profile\presentation\edit_profile_page.dart:103:13 - unused_result
+warning - Dead code - lib\features\scan\presentation\preview_page.dart:104:14 - dead_code
+warning - The value of the field '_api' isn't used - lib\services\sync_service.dart:28:19 - unused_field
+
+3 issues found. (ran in 4.4s)

@@ -87,22 +87,19 @@ class _PreviewPageState extends ConsumerState<PreviewPage> {
       mode: 'online', // FUTURE: Add offline detection
     );
     try {
-      // TODO: connect backend API
-      final api = ref.read(apiClientProvider);
-      final response = await api.createExpense(expense);
+      final firestore = ref.read(firestoreServiceProvider);
+      final auth = ref.read(authServiceProvider);
+      final uid = auth.currentUser?.uid;
+      
+      if (uid == null) throw Exception('User not logged in');
+      await firestore.saveReceipt(expense, uid);
+
       if (!mounted) return;
-      if (response.success) {
-        // ENV CONFIG REQUIRED: Show success snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense saved successfully')),
-        );
-        context.go(AppRouter.homeDashboard);
-      } else {
-        setState(() {
-          _error = response.errorMessage ?? 'Failed to save';
-          _loading = false;
-        });
-      }
+      // ENV CONFIG REQUIRED: Show success snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Expense saved successfully')),
+      );
+      context.go(AppRouter.homeDashboard);
     } catch (e) {
       // Offline fallback
       await _saveOffline(expense);

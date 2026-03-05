@@ -5,25 +5,25 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/expense_create.dart';
 import '../models/expense_item.dart';
 import '../models/local_expense.dart';
-import 'api_client.dart';
 import 'auth_service.dart';
 import 'database_service.dart';
+import 'firestore_service.dart';
 
 /// Background sync when internet returns. Syncs unsynced SQLite expenses.
 class SyncService {
   SyncService({
     required AuthService authService,
-    required ApiClient apiClient,
     required DatabaseService databaseService,
+    required FirestoreService firestoreService,
     Connectivity? connectivity,
   })  : _auth = authService,
-        _api = apiClient,
         _db = databaseService,
+        _firestore = firestoreService,
         _connectivity = connectivity ?? Connectivity();
 
   final AuthService _auth;
-  final ApiClient _api;
   final DatabaseService _db;
+  final FirestoreService _firestore;
   final Connectivity _connectivity;
 
   /// Start listening for connectivity changes. Call from main.
@@ -50,15 +50,15 @@ class SyncService {
         final expense = ExpenseCreate(
           vendorName: local.vendorName,
           items: items,
-          categoryTotals: {},
+          categoryTotals: _parseCategoryTotals(local.itemsJson),
           subtotal: local.subtotal,
           tax: local.tax,
           total: local.total,
           source: local.source,
           mode: 'offline',
         );
-        final response = await _api.createExpense(expense);
-        if (response.success && local.id != null) {
+        await _firestore.saveReceipt(expense, _auth.currentUser!.uid);
+        if (local.id != null) {
           await _db.updateSynced(local.id!);
         }
       } catch (_) {

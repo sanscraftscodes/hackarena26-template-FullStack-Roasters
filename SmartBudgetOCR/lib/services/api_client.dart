@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 
 import '../core/api/api_response.dart';
 import '../core/config/app_config.dart';
-import '../models/expense_create.dart';
 import '../models/ocr_scan_result.dart';
 import 'auth_service.dart';
 
@@ -20,7 +19,7 @@ class ApiClient {
   final AuthService _auth;
   final Dio _dio;
 
-  /// POST /ocr/scan - returns structured receipt for editable preview
+  /// POST /scan_receipt - returns structured receipt for editable preview
   Future<ApiResponse<OcrScanResult>> ocrScan(List<int> imageBytes) async {
     final formData = FormData.fromMap({
       'file': MultipartFile.fromBytes(
@@ -38,30 +37,38 @@ class ApiClient {
     );
   }
 
-  /// POST /expenses - store confirmed expense
-  Future<ApiResponse<Map<String, dynamic>>> createExpense(
-    ExpenseCreate expense,
-  ) async {
+  /// POST /voice_expense - parse free‑form voice text into structured receipt.
+  Future<ApiResponse<OcrScanResult>> voiceExpense(String text) async {
     final response = await _dio.post(
-      AppConfig.expensesUrl,
-      data: expense.toJson(),
+      AppConfig.voiceExpenseUrl,
+      data: {'text': text},
     );
-    return _parseResponse(response, (data) => data as Map<String, dynamic>);
+    return _parseResponse(
+      response,
+      (data) => OcrScanResult.fromJson(data as Map<String, dynamic>),
+    );
   }
 
-  /// GET /analytics - totals by category
-  Future<ApiResponse<Map<String, dynamic>>> getAnalytics() async {
-    final response = await _dio.get(AppConfig.analyticsUrl);
-    return _parseResponse(response, (data) => data as Map<String, dynamic>);
+  /// POST /manual_expense - parse manual free‑form entry into structured receipt.
+  Future<ApiResponse<OcrScanResult>> manualExpense(String text) async {
+    final response = await _dio.post(
+      AppConfig.manualExpenseUrl,
+      data: {'text': text},
+    );
+    return _parseResponse(
+      response,
+      (data) => OcrScanResult.fromJson(data as Map<String, dynamic>),
+    );
   }
 
-  /// GET /prediction - ARIMA forecast
-  Future<ApiResponse<dynamic>> getPrediction({int periods = 3}) async {
-    final response = await _dio.get(
-      AppConfig.predictionUrl,
-      queryParameters: {'periods': periods},
-    );
-    return _parseResponse(response, (data) => data);
+  /// GET /health - simple health check.
+  Future<bool> healthCheck() async {
+    try {
+      final response = await _dio.get(AppConfig.healthUrl);
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   ApiResponse<T> _parseResponse<T>(

@@ -1,30 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/router/app_router.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../data/profile_providers.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends ConsumerState<ProfilePage> {
   bool _loading = false;
 
   Future<void> _logout() async {
     setState(() => _loading = true);
-    await ServiceLocator.auth.signOut();
-    // router redirect handled globally
+    try {
+      await ServiceLocator.auth.signOut();
+      // Explicitly navigate to login after signing out
+      if (mounted) {
+        context.go('/login'); // or your login route path
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = ServiceLocator.auth.currentUser;
+    final profileAsync = ref.watch(userProfileProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
@@ -41,14 +57,24 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 CircleAvatar(
                   radius: 26,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                  child: Text(
-                    _initials(user?.displayName ?? user?.email ?? 'U'),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.12),
+                  child: profileAsync.when(
+                    data: (profile) => Text(
+                      _initials(
+                        profile?.fullName ??
+                            user?.displayName ??
+                            user?.email ??
+                            'U',
+                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    loading: () => const CircularProgressIndicator(),
+                    error: (_, __) => Text('U'),
                   ),
                 ),
                 const SizedBox(width: AppTokens.s12),
@@ -56,25 +82,33 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        user?.displayName ?? 'Your account',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                      profileAsync.when(
+                        data: (profile) => Text(
+                          profile?.fullName ??
+                              user?.displayName ??
+                              'Your account',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        loading: () => const Text('Loading...'),
+                        error: (_, __) => const Text('Error'),
                       ),
                       const SizedBox(height: AppTokens.s4),
                       Text(
                         user?.email ?? '—',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textMuted,
-                            ),
+                          color: AppColors.textMuted,
+                        ),
                       ),
                       const SizedBox(height: AppTokens.s4),
-                      Text(
-                        user?.phoneNumber ?? '—',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textMuted,
-                            ),
+                      profileAsync.when(
+                        data: (profile) => Text(
+                          profile?.phoneNumber ?? user?.phoneNumber ?? '—',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textMuted),
+                        ),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
                       ),
                     ],
                   ),
@@ -85,6 +119,12 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: AppTokens.s16),
           _SettingsSection(
             children: [
+              _SettingsTile(
+                icon: Icons.edit_outlined,
+                title: 'Edit Profile',
+                subtitle: 'Update your personal details',
+                onTap: () => context.push(AppRouter.homeEditProfile),
+              ),
               _SettingsTile(
                 icon: Icons.savings_outlined,
                 title: 'Budgets',
@@ -124,9 +164,9 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: AppTokens.s32),
           Text(
             'FUTURE: SMS expense detection',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textMuted,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textMuted),
             textAlign: TextAlign.center,
           ),
         ],

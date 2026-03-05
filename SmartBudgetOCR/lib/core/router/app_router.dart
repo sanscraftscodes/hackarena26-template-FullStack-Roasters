@@ -9,8 +9,12 @@ import '../../features/dashboard/presentation/dashboard_page.dart';
 import '../../features/scan/presentation/scan_page.dart';
 import '../../features/scan/presentation/preview_page.dart';
 import '../../features/analytics/presentation/analytics_page.dart';
+import '../../features/history/presentation/history_page.dart';
+import '../../features/add_expense/presentation/manual_expense_page.dart';
+import '../../features/add_expense/presentation/voice_expense_page.dart';
 import '../../features/reports/presentation/report_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
+import '../../features/profile/presentation/edit_profile_page.dart';
 import '../../features/home/presentation/home_layout.dart';
 
 /// App routes. Business logic resides in services/features, not here.
@@ -26,7 +30,9 @@ class AppRouter {
   static const String homeDashboard = '$home/dashboard';
   static const String homeScan = '$home/scan';
   static const String homeAnalytics = '$home/analytics';
+  static const String homeHistory = '$home/history';
   static const String homeProfile = '$home/profile';
+  static const String homeEditProfile = '$home/profile/edit';
   static const String homeReports = '$home/reports';
   static const String homePreview = '$home/scan/preview';
 
@@ -99,12 +105,29 @@ class AppRouter {
             pageBuilder: (context, state) => _fadeSlide(const AnalyticsPage()),
           ),
           GoRoute(
+            path: homeHistory,
+            pageBuilder: (context, state) => _fadeSlide(const HistoryPage()),
+          ),
+          GoRoute(
             path: homeReports,
             pageBuilder: (context, state) => _fadeSlide(const ReportPage()),
           ),
           GoRoute(
             path: homeProfile,
             pageBuilder: (context, state) => _fadeSlide(const ProfilePage()),
+          ),
+          GoRoute(
+            path: homeEditProfile,
+            pageBuilder: (context, state) => _fadeSlide(const EditProfilePage()),
+          ),
+          GoRoute(
+            path: '$home/add/voice',
+            pageBuilder: (context, state) => _fadeSlide(const VoiceExpensePage()),
+          ),
+          GoRoute(
+            path: '$home/add/manual',
+            pageBuilder: (context, state) =>
+                _fadeSlide(const ManualExpensePage()),
           ),
         ],
       ),
