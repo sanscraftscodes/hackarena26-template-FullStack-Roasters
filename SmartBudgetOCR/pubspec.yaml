@@ -1,0 +1,51 @@
+name: snapbudget_ocr
+description: "SnapBudget OCR - Receipt scanning and expense tracking with offline support."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+  
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.3.5
+  google_fonts: ^4.0.3
+  fl_chart: ^1.1.1
+  cloud_firestore: ^4.9.0
+
+  # Firebase - Do NOT hardcode config; use firebase_options.dart
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.17.0
+  google_sign_in: 6.2.1
+
+  # API
+  dio: ^5.7.0
+
+  # Offline storage
+  sqflite: ^2.4.1
+  path: ^1.9.0
+
+  # Image capture
+  image_picker: ^1.1.2
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # Connectivity for offline sync
+  connectivity_plus: ^6.0.5
+
+  # Utilities
+  uuid: ^4.5.1
+  firebase_auth_web: ^5.8.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

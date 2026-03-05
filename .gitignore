@@ -6,6 +6,10 @@ backend/env/
 backend/__pycache__/
 backend/*.pyc
 backend/.env
+__pycache__/
+*.pyc
+backend/offline/__pycache__/
+backend/offline/*.pyc
 
 # Virtual environment
 env/
@@ -27,6 +31,9 @@ backend/.env
 .env.*.local
 *.env
 
+# Node
+node_modules/
+
 # -------------------------
 # Firebase Credentials & Sensitive Files
 # -------------------------
@@ -39,13 +46,16 @@ SmartBudgetOCR/.env
 SmartBudgetOCR/.env.local
 
 # -------------------------
-# Flutter
+# Flutter (SmartBudgetOCR is the Flutter app folder name in this project)
 # -------------------------
-mobile_app/build/
-mobile_app/.dart_tool/
-mobile_app/.flutter-plugins
-mobile_app/.flutter-plugins-dependencies
-mobile_app/.packages
+SmartBudgetOCR/build/
+SmartBudgetOCR/.dart_tool/
+SmartBudgetOCR/.flutter-plugins
+SmartBudgetOCR/.flutter-plugins-dependencies
+SmartBudgetOCR/.packages
+SmartBudgetOCR/android/app/build/
+SmartBudgetOCR/.idea/
+SmartBudgetOCR/.metadata
 
 # -------------------------
 # OS Files
