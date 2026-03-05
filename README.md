@@ -8,9 +8,9 @@
 - **Team Name:** 
 FullStack-Roasters
 - **Members:** 
-Umesh Shinde
-Sanskruti Sathe
-Ritika Rambhad
+Umesh Shinde,
+Sanskruti Sathe,
+Ritika Rambhad,
 Rehan Khan
 
 
