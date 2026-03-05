@@ -23,20 +23,25 @@ app = FastAPI()
 
 # ------------------ MODELS ------------------
 
+
+
 class Item(BaseModel):
     name: str
-    price: float
-    category: Optional[str] = None
+    quantity: int
+    unit_price: float
+    total_price: float
+    category: str
 
+
+from typing import Optional
 
 class ReceiptData(BaseModel):
     vendor_name: str
     items: List[Item]
 
-    category_totals: Optional[Dict[str, float]] = None
-    subtotal: float
-    tax: float
-    total: float
+    subtotal: Optional[float] = None
+    tax: Optional[float] = None
+    total: Optional[float] = None
 
     budget_alerts: Optional[List[str]] = None
     is_anomaly: Optional[bool] = None
