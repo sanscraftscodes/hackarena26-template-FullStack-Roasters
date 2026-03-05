@@ -2,7 +2,8 @@ from faster_whisper import WhisperModel
 import tempfile
 from manual_input_service import process_manual_expense
 from expense_parser import parse_expenses
-from offline.zero_shot_categorizer import zero_shot_categorize
+from offline.claude_classifier import classify, classify_batch, ClassifierResult
+
 
 model = None
 
@@ -34,7 +35,7 @@ def process_voice_expense(audio_file):
     results = []
 
     for expense in parsed_expenses:
-        category = zero_shot_categorize(expense["item"])
+        category = classify(expense["item"])
 
         results.append({
             "item": expense["item"],

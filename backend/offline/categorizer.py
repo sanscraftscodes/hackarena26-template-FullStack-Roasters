@@ -2,14 +2,17 @@ if __package__:
     from .product_map import PRODUCT_MAP
     from .preprocessing import clean_item
     from .embedding import embed
-    from .category_vectors import category_examples
+    from .category_vectors import category_vectors
     from .similarity import cosine_similarity
 else:
     from product_map import PRODUCT_MAP
     from preprocessing import clean_item
     from embedding import embed
-    from category_vectors import category_examples
+    from category_vectors import category_vectors
     from similarity import cosine_similarity
+
+
+SIM_THRESHOLD = 0.45
 
 
 def generate_phrases(text):
@@ -25,81 +28,96 @@ def generate_phrases(text):
     for i in range(len(words) - 1):
         phrases.append(words[i] + " " + words[i + 1])
 
-    for i in range(len(words)-2):
-        phrases.append(words[i] + " " + words[i+1] + " " + words[i+2])
+    # trigrams
+    for i in range(len(words) - 2):
+        phrases.append(words[i] + " " + words[i + 1] + " " + words[i + 2])
 
-    return list(set(phrases))
+    # remove duplicates + empty
+    return list(set(p for p in phrases if p.strip()))
+
+
+def dictionary_lookup(text):
+
+    for key, category in PRODUCT_MAP.items():
+        if key in text:
+            return category, key
+
+    return None, None
 
 
 def offline_categorize(items):
 
     print("\n========= OFFLINE CATEGORIZATION =========\n")
 
-    results = {}
+    item_categories = {}
+    category_counts = {}
 
     for original_item in items:
 
         clean_text = clean_item(original_item)
 
-        # -------- PRODUCT DICTIONARY MATCH --------
-        matched = False
-
-        for key in PRODUCT_MAP:
-            if key in clean_text:
-
-                category = PRODUCT_MAP[key]
-
-                print(f"ITEM: {original_item}")
-                print(f"CLEANED: {clean_text}")
-                print(f"PREDICTED CATEGORY: {category}")
-                print(f"MATCHED PRODUCT MAP: {key}")
-                print("-----------------------------------")
-
-                results[category] = results.get(category, 0) + 1
-                matched = True
-                break
-
-        # if dictionary matched → skip embedding
-        if matched:
+        # skip empty OCR garbage
+        if not clean_text or len(clean_text) < 3:
             continue
 
-        # -------- EMBEDDING FALLBACK --------
+        # ---------------------------
+        # STEP 1 : PRODUCT MAP
+        # ---------------------------
+
+        category, key = dictionary_lookup(clean_text)
+
+        if category:
+
+            item_categories[original_item] = category
+            category_counts[category] = category_counts.get(category, 0) + 1
+
+            print(f"ITEM: {original_item}")
+            print(f"CLEANED: {clean_text}")
+            print(f"PREDICTED CATEGORY: {category}")
+            print(f"MATCHED PRODUCT MAP: {key}")
+            print("-----------------------------------")
+
+            continue
+
+
+        # ---------------------------
+        # STEP 2 : EMBEDDING SIMILARITY
+        # ---------------------------
 
         phrases = generate_phrases(clean_text)
-
         phrase_vectors = embed(phrases)
 
         best_category = None
         best_score = -1
-        best_example = None
 
         for phrase_vec in phrase_vectors:
 
-            for category, examples in category_examples.items():
+            for category, category_vec in category_vectors.items():
 
-                for example_text, example_vec in examples:
+                score = cosine_similarity(phrase_vec, category_vec)
 
-                    score = cosine_similarity(phrase_vec, example_vec)
+                if score > best_score:
+                    best_score = score
+                    best_category = category
 
-                    if score > best_score:
-                        best_score = score
-                        best_category = category
-                        best_example = example_text
 
-        if best_score < 0.40:
+        # threshold fallback
+        if best_score < SIM_THRESHOLD:
             best_category = "other"
 
-        results[best_category] = results.get(best_category, 0) + 1
+        item_categories[original_item] = best_category
+        category_counts[best_category] = category_counts.get(best_category, 0) + 1
+
 
         print(f"ITEM: {original_item}")
         print(f"CLEANED: {clean_text}")
         print(f"PHRASES: {phrases}")
         print(f"PREDICTED CATEGORY: {best_category}")
-        print(f"MATCHED EXAMPLE: {best_example}")
         print(f"SIMILARITY SCORE: {round(best_score,3)}")
         print("-----------------------------------")
 
-    print("\n========= CATEGORY TOTALS =========\n")
-    print(results)
 
-    return results
+    print("\n========= CATEGORY TOTALS =========\n")
+    print(category_counts)
+
+    return item_categories

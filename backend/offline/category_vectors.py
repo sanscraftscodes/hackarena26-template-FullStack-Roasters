@@ -1,3 +1,5 @@
+import numpy as np
+
 if __package__:
     from .categories import CATEGORIES
     from .embedding import embed
@@ -5,17 +7,16 @@ else:
     from categories import CATEGORIES
     from embedding import embed
 
-# store embeddings for each example phrase
-category_examples = {}
+
+# category → centroid vector
+category_vectors = {}
 
 for category, examples in CATEGORIES.items():
 
+    # embed all example phrases
     vectors = embed(examples)
 
-    pairs = []
+    # compute centroid (average vector)
+    centroid = np.mean(vectors, axis=0)
 
-    for example_text, vec in zip(examples, vectors):
-        pairs.append((example_text, vec))
-
-    category_examples[category] = pairs
-    
+    category_vectors[category] = centroid

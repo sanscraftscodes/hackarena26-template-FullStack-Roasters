@@ -2,9 +2,9 @@ PRODUCT_MAP = {
 
 # biscuits
 "goodday": "grocery",
-"good day": "grocery",
 "parle": "grocery",
 "marie gold": "grocery",
+"saffola": "grocery",
 
 # snacks
 "lays": "grocery",
@@ -26,6 +26,7 @@ PRODUCT_MAP = {
 # toothpaste
 "colgate": "selfcare",
 "closeup": "selfcare",
+"vaseline": "selfcare",
 
 # shampoo
 "head shoulders": "selfcare",

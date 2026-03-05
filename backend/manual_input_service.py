@@ -1,28 +1,21 @@
-from offline.zero_shot_categorizer import zero_shot_categorize
+from offline.claude_classifier import classify, classify_batch, ClassifierResult
 import re
 
 
-def process_manual_expense(text):
+def process_manual_expense(expense):
+    text = (expense.items or expense.note or "").strip()
 
-    # text = data.items
-    # amount = data.amount
-    # extract amount
-    amount_match = re.search(r'\d+', text)
-    amount = int(amount_match.group()) if amount_match else 0
-    # remove numbers from text
-    clean_text = re.sub(r'\d+', '', text)
+    if expense.amount is not None:
+        amount = float(expense.amount)
+    else:
+        amount_match = re.search(r"\d+(\.\d+)?", text)
+        amount = float(amount_match.group()) if amount_match else 0.0
 
-    # split items
-    items = clean_text.split()
-
-    # run categorization
-    category = zero_shot_categorize(cleaned_text)
-
-    # get main category
-    category = max(category_result, key=category_result.get)
+    clean_text = re.sub(r"\d+(\.\d+)?", "", text).strip()
+    category = classify(clean_text or "expense")
 
     return {
-        "items": text,
+        "items": clean_text or text,
         "amount": amount,
         "category": category
     }

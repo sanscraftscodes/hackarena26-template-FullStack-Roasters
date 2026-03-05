@@ -19,7 +19,7 @@ model = genai.GenerativeModel("gemini-flash-lite-latest")
 
 
 # -----------------------------
-# OCR CLEANER
+# OCR CLEANER (IMPROVED)
 # -----------------------------
 def clean_ocr_text(raw_text):
 
@@ -35,7 +35,7 @@ def clean_ocr_text(raw_text):
         if not line:
             continue
 
-        # join broken decimals like ".00"
+        # join broken decimals
         if re.match(r"^\.\d+", line):
             buffer += line
             continue
@@ -43,6 +43,9 @@ def clean_ocr_text(raw_text):
         if buffer:
             line = buffer + line
             buffer = ""
+
+        # remove weird characters
+        line = re.sub(r"[^\w\s\.\-%:/]", "", line)
 
         cleaned.append(line)
 
@@ -56,14 +59,14 @@ def extract_vendor_name(raw_text):
 
     lines = raw_text.split("\n")
 
-    for line in lines[:12]:
+    for line in lines[:15]:
 
         text = line.strip()
 
         if len(text) < 4:
             continue
 
-        if re.search(r"\d{4,}", text):
+        if re.search(r"\d{5,}", text):
             continue
 
         if any(word in text.lower() for word in [
@@ -75,27 +78,24 @@ def extract_vendor_name(raw_text):
 
 
 # -----------------------------
-# BUILD ITEM ROWS
+# BUILD ITEM ROWS (IMPROVED)
 # -----------------------------
 def build_item_rows(raw_text):
 
     lines = raw_text.split("\n")
-
     rows = []
-    current_name = ""
     start_items = False
 
     for line in lines:
 
         line = line.strip()
-
         if not line:
             continue
 
         lower = line.lower()
 
-        # detect item table start
-        if "particular" in lower:
+        # detect start of item table
+        if any(x in lower for x in ["particular", "description", "item"]):
             start_items = True
             continue
 
@@ -103,45 +103,35 @@ def build_item_rows(raw_text):
             continue
 
         # stop when totals start
-        if "gst breakup" in lower or "amount received" in lower:
+        if any(x in lower for x in [
+            "gst", "total", "grand total", "amount received",
+            "saved rs", "upi", "payment", "taxable"
+        ]):
             break
 
-        # detect prices
-        numbers = re.findall(r"\d+\.\d{2}", line)
+        # detect price
+        price_match = re.search(r"(\d+[.,]\d{2})", line)
 
-        if numbers:
+        if price_match:
 
-            unit_price = float(numbers[-1])
+            price = float(price_match.group(1).replace(",", "."))
 
-            qty_match = re.search(r"(\d+)\s*[xX]", line)
+            # remove price from name
+            name = line.replace(price_match.group(1), "").strip()
 
-            quantity = 1
+            # clean HSN codes
+            name = re.sub(r"^\d{4,}", "", name).strip()
 
-            if qty_match:
-                quantity = int(qty_match.group(1))
+            # ignore garbage rows
+            if len(name) < 3:
+                continue
 
-            total_price = round(quantity * unit_price, 2)
-
-            if current_name:
-
-                rows.append(
-                    f"{current_name.strip()} | qty:{quantity} | unit:{unit_price} | total:{total_price}"
-                )
-
-                current_name = ""
-
-        else:
-
-            # remove HSN codes
-            line = re.sub(r"^\d{3,6}\s*", "", line)
-
-            if not line.isdigit():
-                current_name += " " + line
-
-    if not rows:
-        return ""
+            rows.append(
+                f"{name} | qty:1 | unit:{price} | total:{price}"
+            )
 
     return "\n".join(rows)
+
 
 
 # -----------------------------
@@ -169,13 +159,17 @@ def remove_invalid_items(items):
         if item.get("quantity", 1) == 0:
             continue
 
+        # remove blank item names
+        if len(item.get("name","").strip()) < 3:
+            continue
+
         clean_items.append(item)
 
     return clean_items
 
 
 # -----------------------------
-# EXTRACT TOTALS FROM OCR TEXT
+# EXTRACT TOTALS (IMPROVED)
 # -----------------------------
 def extract_totals(raw_text):
 
@@ -194,20 +188,21 @@ def extract_totals(raw_text):
 
         nums = re.findall(r"\d+\.\d{2}", line)
 
-        # subtotal
         if "taxable" in lower and nums:
             subtotal = float(nums[-1])
 
-        # cgst
         if "cgst" in lower and nums:
             cgst += float(nums[-1])
 
-        # sgst
         if "sgst" in lower and nums:
             sgst += float(nums[-1])
 
-        # total detection
-        if "amount received" in lower or "total amount" in lower:
+        if any(x in lower for x in [
+            "amount received",
+            "total amount",
+            "net payable",
+            "grand total"
+        ]):
 
             if nums:
                 total = float(nums[-1])
@@ -236,7 +231,52 @@ def compute_items_total(items):
 
     return round(total, 2)
 
+# -----------------------------
+# LLM CLEANUP (NEW)
+# -----------------------------
+def cleanup_items_with_llm(items):
 
+    prompt = f"""
+Clean the following OCR extracted product items.
+
+Tasks:
+1. Fix obvious OCR spelling mistakes in product names
+2. Remove garbage items (single letters, unreadable names)
+3. Keep real purchasable products only
+4. Do NOT modify prices or quantities
+
+Return STRICT JSON:
+
+{{
+ "items":[
+  {{
+   "name": "string",
+   "quantity": number,
+   "unit_price": number,
+   "total_price": number,
+   "category": "string"
+  }}
+ ]
+}}
+
+Items:
+
+{json.dumps(items, indent=2)}
+"""
+
+    response = model.generate_content(prompt)
+
+    output = response.text.strip()
+
+    if "```" in output:
+        output = output.split("```")[1]
+
+    if output.startswith("json"):
+        output = output.replace("json", "", 1)
+
+    cleaned = json.loads(output)
+
+    return cleaned.get("items", items)
 # -----------------------------
 # GEMINI STRUCTURING
 # -----------------------------
@@ -257,80 +297,137 @@ def refine_receipt_text(raw_text: str):
         print("⚠️ No structured rows detected, sending raw OCR")
         structured_rows = clean_text
 
+    if (
+        "amount in figures" in clean_text.lower()
+        or "received from" in clean_text.lower()
+        or "on account of" in clean_text.lower()
+    ):
 
+        amount = None
+
+        patterns = [
+            r"amount\s*in\s*figures\D{0,10}(\d+)",
+            r"amount\s*paid\D{0,10}(\d+)",
+            r"amount\D{0,10}(\d+)",
+            r"total\D{0,10}(\d+)"
+        ]
+
+        for p in patterns:
+            m = re.search(p, clean_text.lower())
+            if m:
+                amount = float(m.group(1))
+                break
+        purpose_match = re.search(r"on account of\s*(.*)", clean_text.lower())
+        purpose = purpose_match.group(1).strip() if purpose_match else "Payment"
+
+        if amount:
+
+            return {
+                "vendor_name": vendor,
+                "items": [
+                    {
+                        "name": purpose,
+                        "quantity": 1,
+                        "unit_price": amount,
+                        "total_price": amount,
+                        "category": "Utilities"
+                    }
+                ],
+                "subtotal": amount,
+                "tax": 0,
+                "total": amount
+            }
     prompt = f"""
-You are a STRICT receipt parsing AI.
+    You are an expert receipt parsing AI.
 
-Your job is to convert receipt text into structured purchase data.
+    Your task is to convert OCR receipt rows into clean structured purchase data.
 
-Rules:
+    IMPORTANT:
+    The OCR text may contain noise, broken words, tax lines, payment lines, or totals.
+    You must identify ONLY real purchased products.
 
-1. Extract ONLY purchased products.
-2. Ignore:
-GST
-CGST
-SGST
-Tax
-Subtotal
-Total
-Invoice
-Payment
-UPI
-Phone numbers
-Dates
+    STRICT RULES:
 
-3. Each item must contain:
+    1. Extract ONLY purchased product items.
 
-name
-quantity
-unit_price
-total_price
-category
+    2. IGNORE lines containing:
+    GST
+    CGST
+    SGST
+    TAX
+    BREAKUP
+    TOTAL
+    GRAND TOTAL
+    AMOUNT RECEIVED
+    PAYMENT
+    UPI
+    INVOICE
+    DATE
+    TIME
+    ITEMS
+    SAVED
+    CUSTOMER
 
-4. total_price = quantity × unit_price
+    3. Ignore rows that:
+    - contain mostly numbers
+    - contain no readable product name
+    - contain only prices
+    - look like table headers (Qty, Rate, Value, SN)
 
-5. Categories allowed:
+    4. Product names may contain OCR mistakes.
+    Clean them slightly but keep the recognizable product name.
 
-Food
-Grocery
-Utilities
-Travel
-Entertainment
-Medical
-Stationary
-Household
-Electronics
-Clothes
-Selfcare
-Other
+    Example:
+    "FIGAR0 0LIVE 0I-200m1" → "Figaro Olive Oil 200ml"
 
-6. If quantity missing assume quantity = 1
+    5. If quantity is missing assume:
+    quantity = 1
 
-7. Remove HSN codes or serial numbers before names.
+    6. Prices must follow:
+    total_price = quantity × unit_price
 
-8. DO NOT hallucinate items.
+    7. Ignore items where:
+    - name length < 3 characters
+    - unit_price < 3
+    - line clearly belongs to tax or totals section
 
-Return STRICT JSON ONLY.
+    8. Allowed categories:
 
-JSON format:
+    Food  
+    Grocery  
+    Utilities  
+    Travel  
+    Entertainment  
+    Medical  
+    Stationary  
+    Household  
+    Electronics  
+    Clothes  
+    Selfcare  
+    Other
 
-{{
-"vendor_name":"string",
-"items":[
-{{
-"name":"string",
-"quantity":number,
-"unit_price":number,
-"total_price":number,
-"category":"string"
-}}
-]
-}}
+    9. Return STRICT JSON ONLY.
 
-ITEM ROWS:
+    DO NOT include explanations.
 
-{structured_rows}
-"""
+    JSON FORMAT:
+
+    {{
+    "items": [
+        {{
+        "name": "string",
+        "quantity": number,
+        "unit_price": number,
+        "total_price": number,
+        "category": "string"
+        }}
+    ]
+    }}
+
+    Receipt rows:
+
+    {structured_rows}
+    """
 
     try:
 
@@ -338,7 +435,7 @@ ITEM ROWS:
 
         output = response.text.strip()
 
-        print("🟢 [Gemini] Raw Output:")
+        print("🟢 Gemini Raw Output:")
         print(output)
 
         if "```" in output:
@@ -353,8 +450,20 @@ ITEM ROWS:
 
             parsed_json = json.loads(output)
 
+            # handle case where Gemini returns list
+            if isinstance(parsed_json, list):
+                parsed_json = {
+                    "vendor_name": vendor,
+                    "items": parsed_json
+                }
+
             if "items" in parsed_json:
+
+                # remove obvious garbage first
                 parsed_json["items"] = remove_invalid_items(parsed_json["items"])
+
+                # LLM cleanup pass
+                parsed_json["items"] = cleanup_items_with_llm(parsed_json["items"])
 
         except json.JSONDecodeError:
 
@@ -366,6 +475,13 @@ ITEM ROWS:
             }
 
         subtotal, tax, total = extract_totals(clean_text)
+        items_total = compute_items_total(parsed_json.get("items", []))
+
+        if subtotal is None:
+            subtotal = items_total
+
+        if total is None and tax is not None:
+            total = round(subtotal + tax, 2)
 
         parsed_json["vendor_name"] = vendor
         parsed_json["subtotal"] = subtotal
@@ -376,13 +492,13 @@ ITEM ROWS:
             parsed_json.get("items", [])
         )
 
-        print("✅ [Gemini] JSON Parsed Successfully")
+        print("✅ JSON Parsed Successfully")
 
         return parsed_json
 
     except Exception as e:
 
-        print("🔴 [Gemini ERROR]:", str(e))
+        print("🔴 Gemini ERROR:", str(e))
 
         return {
             "vendor_name": "Unknown Store",

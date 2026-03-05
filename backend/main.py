@@ -9,7 +9,7 @@ from typing import List, Dict, Optional
 from ocr_pipeline import extract_text
 from receipt_parser import extract_items_with_price
 from offline.categorizer import offline_categorize
-from expense_calculator import calculate_expenses
+from vendor_detector import detect_vendor
 from models import ManualExpense
 from manual_input_service import process_manual_expense
 from voice_input_service import process_voice_expense
@@ -96,25 +96,65 @@ async def scan_receipt(file: UploadFile = File(...)):
     with open(path, "wb") as f:
         f.write(image_bytes)
 
-    # OCR
+    # ---------------- OCR ----------------
     text = extract_text(image_bytes)
 
-    # Extract items + prices
+    # ---------------- PARSE ITEMS ----------------
     parsed_items = extract_items_with_price(text)
 
     item_names = [i["item"] for i in parsed_items]
 
-    # Categorize
+    # ---------------- CLASSIFICATION ----------------
     categories = offline_categorize(item_names)
 
-    # Calculate totals
-    category_totals, overall_total = calculate_expenses(parsed_items, categories)
+    structured_items = []
 
+    for item in parsed_items:
+
+        name = item["item"]
+        price = item["price"]
+
+        category = categories.get(name, "other")
+
+        structured_items.append({
+            "name": name,
+            "quantity": 1,
+            "unit_price": price,
+            "total_price": price,
+            "category": category.capitalize()
+        })
+
+    # ---------------- CATEGORY TOTALS ----------------
+    category_totals = {}
+
+    for item in structured_items:
+        cat = item["category"]
+        price = item["total_price"]
+
+        category_totals[cat] = category_totals.get(cat, 0) + price
+
+    # ---------------- TOTALS ----------------
+    subtotal = sum(i["total_price"] for i in structured_items)
+
+    # ---------------- VENDOR DETECTION ----------------
+    vendor_name = detect_vendor(text)
+
+    # ---------------- RESPONSE ----------------
     return {
-        "items": parsed_items,
-        "category_totals": category_totals,
-        "overall_total": overall_total
-    }
+        "success": True,
+        "data": {
+            "vendor_name": vendor_name,
+            "items": structured_items,
+            "subtotal": subtotal,
+            "tax": None,
+            "total": subtotal,
+            "budget_alerts": None,
+            "is_anomaly": None,
+            "created_at": None,
+            "user_id": None
+        },
+        "error": None
+    }   
 
 @app.post("/manual-expense")
 def manual_expense(expense: ManualExpense):

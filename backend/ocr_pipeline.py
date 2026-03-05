@@ -52,18 +52,51 @@ def extract_text(image_bytes):
 
     processed = preprocess_image(image_bytes)
 
-    # Slight upscale helps OCR
     processed = cv2.resize(processed, None, fx=1.3, fy=1.3, interpolation=cv2.INTER_CUBIC)
 
-    result = ocr.ocr(processed)
+    result = ocr.ocr(processed, cls=True)
 
-    lines = []
+    rows = []
 
     if result and result[0]:
+
+        # collect text boxes
+        boxes = []
+
         for line in result[0]:
+
             text = line[1][0].strip()
+            score = line[1][1]
 
-            if text:
-                lines.append(text)
+            if score < 0.62:
+                continue
 
-    return "\n".join(lines)
+            box = line[0]
+
+            y = int(box[0][1])
+
+            boxes.append((y, text))
+
+        # sort by vertical position
+        boxes.sort(key=lambda x: x[0])
+
+        # group lines with similar y coordinate
+        current_y = None
+        current_line = []
+
+        for y, text in boxes:
+
+            if current_y is None:
+                current_y = y
+
+            if abs(y - current_y) < 15:
+                current_line.append(text)
+            else:
+                rows.append(" ".join(current_line))
+                current_line = [text]
+                current_y = y
+
+        if current_line:
+            rows.append(" ".join(current_line))
+
+    return "\n".join(rows)
