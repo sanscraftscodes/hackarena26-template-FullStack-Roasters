@@ -5,17 +5,24 @@
 
 ## Team Details
 
-- **Team Name:**
-- **Members:**
-- **Domain:**
+- **Team Name:** 
+FullStack-Roasters
+- **Members:** 
+Umesh Shinde
+Sanskruti Sathe
+Ritika Rambhad
+Rehan Khan
 
----
 
-## Project
 
-**Problem:** 
+Domain:
+AI / FinTech
 
-**Solution:** 
+Problem:
+Manual expense tracking is tedious and time consuming.
+
+Solution:
+SnapBudget OCR scans receipts and automatically categorizes expenses offline using OCR and lightweight ML models.
 
 ---
 
