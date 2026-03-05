@@ -1,3 +1,5 @@
+import multiprocessing
+multiprocessing.set_start_method("spawn", force=True)
 from fastapi import FastAPI, UploadFile, File
 from ocr_pipeline import extract_text
 from gemini_service import refine_receipt_text
@@ -10,6 +12,7 @@ from offline.categorizer import offline_categorize
 from expense_calculator import calculate_expenses
 from models import ManualExpense
 from manual_input_service import process_manual_expense
+from voice_input_service import process_voice_expense
 import os
 import shutil
 import os
@@ -120,5 +123,16 @@ def manual_expense(expense: ManualExpense):
 
     return {
         "status": "success",
+        "data": result
+    }
+
+
+@app.post("/voice-expense")
+async def voice_expense(audio: UploadFile = File(...)):
+
+    result = process_voice_expense(audio.file)
+
+    return {
+        "success": True,
         "data": result
     }
